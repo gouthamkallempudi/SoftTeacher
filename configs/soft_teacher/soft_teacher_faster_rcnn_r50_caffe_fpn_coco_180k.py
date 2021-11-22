@@ -39,7 +39,7 @@ log_config = dict(
                     fold="${fold}",
                     percent="${percent}",
                     work_dirs="${work_dir}",
-                    total_step="${runner.max_iters}",
+                    total_step= 500,
                 ),
             ),
             by_epoch=False,
