@@ -183,6 +183,8 @@ def main():
         )
     # add an attribute for visualization convenience
     model.CLASSES = datasets[0].CLASSES
+    logger.info(f"classes : {model.classes}")
+    logger.info(f"cfg : {cfg}")
     train_detector(
         model,
         datasets,
