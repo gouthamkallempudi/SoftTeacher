@@ -6,6 +6,8 @@ _base_ = [
     f"{mmdet_base}/default_runtime.py",
 ]
 
+classes = ("text", "title", "list", "table", "figure")
+
 model = dict(
     backbone=dict(
         norm_cfg=dict(requires_grad=False),
@@ -13,7 +15,13 @@ model = dict(
         style="caffe",
         init_cfg=dict(
             type="Pretrained", checkpoint="open-mmlab://detectron2/resnet50_caffe"
-        ),
+        )
+    ),
+    roi_head=dict(
+        bbox_head=[ dict(
+                type="Shared2FCBBoxHead",
+                num_classes=5)],
+        mask_head=dict(num_classes=5)       
     )
 )
 
@@ -211,23 +219,26 @@ data = dict(
         type="SemiDataset",
         sup=dict(
             type="CocoDataset",
+            classes=classes,
             ann_file=None,
             img_prefix=None,
             pipeline=train_pipeline,
         ),
         unsup=dict(
             type="CocoDataset",
+            classes=classes,
             ann_file=None,
             img_prefix=None,
             pipeline=unsup_pipeline,
             filter_empty_gt=False,
         ),
     ),
-    val=dict(pipeline=test_pipeline),
-    test=dict(pipeline=test_pipeline),
+    val=dict(classes=classes, pipeline=test_pipeline),
+    test=dict(classes=classes, pipeline=test_pipeline),
     sampler=dict(
         train=dict(
             type="SemiBalanceSampler",
+            classes=classes,
             sample_ratio=[1, 4],
             by_prob=True,
             # at_least_one=True,
