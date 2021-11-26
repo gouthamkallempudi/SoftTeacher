@@ -15,14 +15,14 @@ model = dict(
         style="caffe",
         init_cfg=dict(
             type="Pretrained", checkpoint="open-mmlab://detectron2/resnet50_caffe"
-        )
+        )     
+    
     ),
     roi_head=dict(
-        bbox_head=[ dict(
-                type="Shared2FCBBoxHead",
-                num_classes=5)],
-        mask_head=dict(num_classes=5)       
-    )
+            type='StandardRoIHead',
+            bbox_head=dict(
+                type='Shared2FCBBoxHead',
+                num_classes=5))
 )
 
 img_norm_cfg = dict(mean=[103.530, 116.280, 123.675], std=[1.0, 1.0, 1.0], to_rgb=False)

@@ -1,16 +1,19 @@
 _base_ = "base.py"
 
+classes = ("text", "title", "list", "table", "figure")
 data = dict(
     samples_per_gpu=5,
     workers_per_gpu=5,
     train=dict(
         sup=dict(
             type="CocoDataset",
+            classes=classes,
             ann_file="data/coco/annotations/semi_supervised/instances_train2017.${fold}@${percent}.json",
             img_prefix="data/coco/train2017/",
         ),
         unsup=dict(
             type="CocoDataset",
+            classes=classes,
             ann_file="data/coco/annotations/semi_supervised/instances_train2017.${fold}@${percent}-unlabeled.json",
             img_prefix="data/coco/train2017/",
         ),
