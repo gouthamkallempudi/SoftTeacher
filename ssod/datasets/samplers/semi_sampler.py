@@ -184,7 +184,7 @@ class DistributedGroupSemiBalanceSampler(Sampler):
 
         offset = len(self) * self.rank
         indices = indices[offset : offset + len(self)]
-        assert len(indices) == len(self)
+        #assert len(indices) == len(self)
         return iter(indices)
 
     def __len__(self):
