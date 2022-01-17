@@ -1,13 +1,13 @@
 import torch
 from mmcv.runner.fp16_utils import force_fp32
-from mmdet.core import bbox2result, bbox2roi, multi_apply
+from mmdet.core import bbox2roi, multi_apply
 from mmdet.models import DETECTORS, build_detector
 
-from ssod.utils import log_every_n, log_image_with_boxes
 from ssod.utils.structure_utils import dict_split, weighted_loss
+from ssod.utils import log_image_with_boxes, log_every_n
 
 from .multi_stream_detector import MultiSteamDetector
-from .utils import Transform2D, filter_invalid, result2bbox, result2mask
+from .utils import Transform2D, filter_invalid
 
 
 @DETECTORS.register_module()
@@ -86,11 +86,6 @@ class SoftTeacher(MultiSteamDetector):
             M,
             [meta["img_shape"] for meta in student_info["img_metas"]],
         )
-        pseudo_masks = self._transform_mask(
-            teacher_info["det_masks"],
-            M,
-            [meta["img_shape"] for meta in student_info["img_metas"]],
-        )
         pseudo_labels = teacher_info["det_labels"]
         loss = {}
         rpn_loss, proposal_list = self.rpn_loss(
@@ -132,7 +127,6 @@ class SoftTeacher(MultiSteamDetector):
                 proposals,
                 pseudo_bboxes,
                 pseudo_labels,
-                pseudo_masks,
                 student_info=student_info,
             )
         )
@@ -270,30 +264,22 @@ class SoftTeacher(MultiSteamDetector):
         proposal_list,
         pseudo_bboxes,
         pseudo_labels,
-        pseudo_masks,
         student_info=None,
         **kwargs,
     ):
-        gt_bboxes, gt_labels, gt_masks = multi_apply(
+        gt_bboxes, gt_labels, _ = multi_apply(
             filter_invalid,
             [bbox[:, :4] for bbox in pseudo_bboxes],
             pseudo_labels,
             [-bbox[:, 5:].mean(dim=-1) for bbox in pseudo_bboxes],
-            pseudo_masks,
             thr=-self.train_cfg.reg_pseudo_threshold,
         )
         log_every_n(
             {"rcnn_reg_gt_num": sum([len(bbox) for bbox in gt_bboxes]) / len(gt_bboxes)}
         )
-        loss = self.student.roi_head.forward_train(
-            feat,
-            img_metas,
-            proposal_list,
-            gt_bboxes,
-            gt_labels,
-            gt_masks=gt_masks,
-            **kwargs,
-        )
+        loss_bbox = self.student.roi_head.forward_train(
+            feat, img_metas, proposal_list, gt_bboxes, gt_labels, **kwargs
+        )["loss_bbox"]
         if len(gt_bboxes[0]) > 0:
             log_image_with_boxes(
                 "rcnn_reg",
@@ -305,7 +291,7 @@ class SoftTeacher(MultiSteamDetector):
                 interval=500,
                 img_norm_cfg=student_info["img_metas"][0]["img_norm_cfg"],
             )
-        return {k: v for k, v in loss.items() if "cls" not in k}
+        return {"loss_bbox": loss_bbox}
 
     def get_sampling_result(
         self,
@@ -337,11 +323,6 @@ class SoftTeacher(MultiSteamDetector):
     def _transform_bbox(self, bboxes, trans_mat, max_shape):
         bboxes = Transform2D.transform_bboxes(bboxes, trans_mat, max_shape)
         return bboxes
-
-    @force_fp32(apply_to=["trans_mat"])
-    def _transform_mask(self, masks, trans_mat, max_shape):
-        masks = Transform2D.transform_masks(masks, trans_mat, max_shape)
-        return masks
 
     @force_fp32(apply_to=["a", "b"])
     def _get_trans_mat(self, a, b):
@@ -418,29 +399,8 @@ class SoftTeacher(MultiSteamDetector):
             torch.cat([bbox, unc], dim=-1) for bbox, unc in zip(det_bboxes, reg_unc)
         ]
         det_labels = proposal_label_list
-        segm_results = self.teacher.roi_head.simple_test_mask(
-            feat, img_metas, proposal_list, proposal_label_list, rescale=False
-        )
-        # Make mask order align with the bboxes
-        bbox_results = [
-            bbox2result(
-                det_bbox, det_label, self.teacher.roi_head.bbox_head.num_classes
-            )
-            for det_bbox, det_label in zip(det_bboxes, det_labels)
-        ]
-        det_bboxes, det_labels = multi_apply(result2bbox, bbox_results)
-        det_bboxes = [
-            torch.from_numpy(bbox).float().to(feat[0].device) for bbox in det_bboxes
-        ]
-        det_labels = [
-            torch.from_numpy(label).to(feat[0].device) for label in det_labels
-        ]
-
-        det_masks, _ = multi_apply(result2mask, segm_results)
-
         teacher_info["det_bboxes"] = det_bboxes
         teacher_info["det_labels"] = det_labels
-        teacher_info["det_masks"] = det_masks
         teacher_info["transform_matrix"] = [
             torch.from_numpy(meta["transform_matrix"]).float().to(feat[0][0].device)
             for meta in img_metas
