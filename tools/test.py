@@ -140,8 +140,9 @@ def main():
     # set cudnn_benchmark
     if cfg.get("cudnn_benchmark", False):
         torch.backends.cudnn.benchmark = True
-
-    cfg.model.pretrained = None
+    # fix issue mentioned in https://github.com/microsoft/SoftTeacher/issues/111
+    if "pretrained" in cfg.model:
+        cfg.model.pretrained = None
     if cfg.model.get("neck"):
         if isinstance(cfg.model.neck, list):
             for neck_cfg in cfg.model.neck:
@@ -229,6 +230,8 @@ def main():
         outputs = multi_gpu_test(model, data_loader, args.tmpdir, args.gpu_collect)
 
     rank, _ = get_dist_info()
+    print("outputs")
+    #print(outputs)
     if rank == 0:
         if args.out:
             print(f"\nwriting results to {args.out}")

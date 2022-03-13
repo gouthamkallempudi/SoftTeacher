@@ -1,23 +1,32 @@
 _base_ = "base.py"
 
-classes = ("text", "title", "list", "table", "figure")
+classes = ("table", "figure")
 data = dict(
-    samples_per_gpu=5,
-    workers_per_gpu=5,
+    samples_per_gpu=8,
+    workers_per_gpu=2,
     train=dict(
         sup=dict(
             type="CocoDataset",
             classes=classes,
             ann_file="data/coco/annotations/semi_supervised/instances_train2017.${fold}@${percent}.json",
-            img_prefix="data/coco/train2017/",
+            img_prefix="/netscratch/kallempudi/SoftTeacher/data/coco/train2017/",
         ),
         unsup=dict(
             type="CocoDataset",
             classes=classes,
             ann_file="data/coco/annotations/semi_supervised/instances_train2017.${fold}@${percent}-unlabeled.json",
-            img_prefix="data/coco/train2017/",
+            img_prefix="/netscratch/kallempudi/SoftTeacher/data/coco/train2017/",
         ),
     ),
+  val=dict(type="CocoDataset",
+              classes=classes, 
+              ann_file="data/coco/annotations/instances_val2017.json",
+              img_prefix="/netscratch/kallempudi/SoftTeacher/data/coco/val2017/",),
+    test=dict(type="CocoDataset",
+              classes=classes, 
+              ann_file="data/coco/annotations/instances_val2017.json",
+              img_prefix="/netscratch/kallempudi/SoftTeacher/data/coco/val2017/",),
+
     sampler=dict(
         train=dict(
             sample_ratio=[1, 4],
@@ -30,7 +39,7 @@ percent = 1
 
 work_dir = "work_dirs/${cfg_name}/${percent}/${fold}"
 log_config = dict(
-    interval=50,
+    interval=1000,
     hooks=[
         dict(type="TextLoggerHook"),
         dict(
@@ -42,7 +51,7 @@ log_config = dict(
                     fold="${fold}",
                     percent="${percent}",
                     work_dirs="${work_dir}",
-                    total_step= "${runner.max_iters}",
+                    total_step="${runner.max_iters}",
                 ),
             ),
             by_epoch=False,

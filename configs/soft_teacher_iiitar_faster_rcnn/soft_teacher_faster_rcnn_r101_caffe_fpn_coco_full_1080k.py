@@ -6,5 +6,9 @@ model = dict(
     )
 )
 
+fold = 1
+percent = 1
+
+work_dir = "work_dirs/${cfg_name}/${percent}/${fold}"
 lr_config = dict(step=[120000 * 6, 160000 * 6])
-runner = dict(_delete_=True, type="IterBasedRunner", max_iters=180000 * 6)
+runner = dict(_delete_=True, type="IterBasedRunner", max_iters=50000)
